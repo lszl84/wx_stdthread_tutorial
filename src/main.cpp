@@ -24,6 +24,8 @@ private:
     bool processing{false};
     std::atomic<bool> quitRequested{false};
 
+    std::thread backgroundThread;
+
     void OnButtonClick(wxCommandEvent &e);
     void OnClose(wxCloseEvent &e);
 };
@@ -100,6 +102,7 @@ void MyFrame::OnButtonClick(wxCommandEvent &e)
                 {
                     wxGetApp().CallAfter([this]()
                                          {
+                                             this->backgroundThread.join();
                                              this->processing = false;
                                              this->quitRequested = false;
                                              this->Destroy(); });
@@ -123,11 +126,12 @@ void MyFrame::OnButtonClick(wxCommandEvent &e)
                                  {
                                      this->label->SetLabelText(wxString::Format("The first number is: %d.\nProcessing time: %.2f [ms]", frontValue, std::chrono::duration<double, std::milli>(diff).count()));
                                      this->Layout();
+
+                                     this->backgroundThread.join();
                                      this->processing = false; });
         };
 
-        std::thread bck{f};
-        bck.detach();
+        this->backgroundThread = std::thread{f};
     }
 }
 

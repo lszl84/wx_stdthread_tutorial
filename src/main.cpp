@@ -21,7 +21,7 @@ private:
     wxStaticText *label;
     wxGauge *progressBar;
 
-    std::atomic<bool> processing{false};
+    bool processing{false};
     std::atomic<bool> quitRequested{false};
 
     void OnButtonClick(wxCommandEvent &e);
@@ -98,11 +98,11 @@ void MyFrame::OnButtonClick(wxCommandEvent &e)
 
                 if (this->quitRequested)
                 {
-                    this->processing = false;
-                    this->quitRequested = false;
-
                     wxGetApp().CallAfter([this]()
-                                         { this->Destroy(); });
+                                         {
+                                             this->processing = false;
+                                             this->quitRequested = false;
+                                             this->Destroy(); });
                     return;
                 }
 
@@ -122,9 +122,8 @@ void MyFrame::OnButtonClick(wxCommandEvent &e)
             wxGetApp().CallAfter([this, diff, frontValue]()
                                  {
                                      this->label->SetLabelText(wxString::Format("The first number is: %d.\nProcessing time: %.2f [ms]", frontValue, std::chrono::duration<double, std::milli>(diff).count()));
-                                     this->Layout(); });
-
-            this->processing = false;
+                                     this->Layout();
+                                     this->processing = false; });
         };
 
         std::thread bck{f};

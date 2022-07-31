@@ -1,5 +1,6 @@
 #include <wx/wx.h>
 #include <chrono>
+#include <atomic>
 #include <thread>
 
 class MyApp : public wxApp

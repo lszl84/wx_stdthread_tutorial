@@ -1,5 +1,6 @@
 #include <wx/wx.h>
 #include <chrono>
+#include <thread>
 
 class MyApp : public wxApp
 {
@@ -74,45 +75,60 @@ void MyFrame::OnButtonClick(wxCommandEvent &e)
     {
         this->processing = true;
 
-        std::vector<int> arr(50000, 5);
-        arr.back() = 3;
+        std::cout << "1. Current thread " << std::this_thread::get_id() << std::endl;
 
-        int n = arr.size();
-
-        this->label->SetLabelText(wxString::Format("Sorting the array of %d elements...", n));
-        this->Layout();
-
-        auto start = std::chrono::steady_clock::now();
-        for (int i = 0; i < n - 1; i++)
+        const auto f = [this]()
         {
-            this->progressBar->SetValue(i * this->progressBar->GetRange() / (n - 2));
-            wxYield();
+            std::cout << "2. Current thread " << std::this_thread::get_id() << std::endl;
 
-            for (int j = 0; j < n - i - 1; j++)
+            std::vector<int> arr(50000, 5);
+            arr.back() = 3;
+
+            int n = arr.size();
+            wxGetApp().CallAfter([this, n]()
+                                 {
+                                     this->label->SetLabelText(wxString::Format("Sorting the array of %d elements...", n));
+                                     this->Layout(); });
+
+            auto start = std::chrono::steady_clock::now();
+            for (int i = 0; i < n - 1; i++)
             {
-                if (arr[j] > arr[j + 1])
-                {
-                    std::swap(arr[j], arr[j + 1]);
-                }
+                wxGetApp().CallAfter([this, n, i]()
+                                     { this->progressBar->SetValue(i * this->progressBar->GetRange() / (n - 2)); });
 
-                if (this->quitRequested)
+                for (int j = 0; j < n - i - 1; j++)
                 {
-                    this->processing = false;
-                    this->quitRequested = false;
-                    this->Destroy();
-                    return;
+                    if (arr[j] > arr[j + 1])
+                    {
+                        std::swap(arr[j], arr[j + 1]);
+                    }
+
+                    if (this->quitRequested)
+                    {
+                        this->processing = false;
+                        this->quitRequested = false;
+
+                        wxGetApp().CallAfter([this]()
+                                             { this->Destroy(); });
+                        return;
+                    }
                 }
             }
-        }
 
-        auto end = std::chrono::steady_clock::now();
-        auto diff = end - start;
+            auto end = std::chrono::steady_clock::now();
+            auto diff = end - start;
 
-        this->label->SetLabelText(wxString::Format("The first number is: %d.\nProcessing time: %.2f [ms]", arr.front(), std::chrono::duration<double, std::milli>(diff).count()));
+            auto frontValue = arr.front();
+            wxGetApp().CallAfter([this, diff, frontValue]()
+                                 {
+                                     this->label->SetLabelText(wxString::Format("The first number is: %d.\nProcessing time: %.2f [ms]", frontValue, std::chrono::duration<double, std::milli>(diff).count()));
+                                     this->Layout(); });
 
-        this->Layout();
+            this->processing = false;
+        };
 
-        this->processing = false;
+        std::thread bck{f};
+        bck.detach();
     }
 }
 

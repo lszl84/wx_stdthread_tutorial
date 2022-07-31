@@ -21,8 +21,8 @@ private:
     wxStaticText *label;
     wxGauge *progressBar;
 
-    bool processing = false;
-    bool quitRequested = false;
+    std::atomic<bool> processing{false};
+    std::atomic<bool> quitRequested{false};
 
     void OnButtonClick(wxCommandEvent &e);
     void OnClose(wxCloseEvent &e);
@@ -96,21 +96,21 @@ void MyFrame::OnButtonClick(wxCommandEvent &e)
                 wxGetApp().CallAfter([this, n, i]()
                                      { this->progressBar->SetValue(i * this->progressBar->GetRange() / (n - 2)); });
 
+                if (this->quitRequested)
+                {
+                    this->processing = false;
+                    this->quitRequested = false;
+
+                    wxGetApp().CallAfter([this]()
+                                         { this->Destroy(); });
+                    return;
+                }
+
                 for (int j = 0; j < n - i - 1; j++)
                 {
                     if (arr[j] > arr[j + 1])
                     {
                         std::swap(arr[j], arr[j + 1]);
-                    }
-
-                    if (this->quitRequested)
-                    {
-                        this->processing = false;
-                        this->quitRequested = false;
-
-                        wxGetApp().CallAfter([this]()
-                                             { this->Destroy(); });
-                        return;
                     }
                 }
             }
